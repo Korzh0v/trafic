@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,5 +28,10 @@ public class Config {
                 .replicas(1)
                 .compact()
                 .build();
+    }
+
+    @Bean
+    public RestTemplate template () {
+        return new RestTemplate();
     }
 }

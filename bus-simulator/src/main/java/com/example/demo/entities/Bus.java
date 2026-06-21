@@ -1,56 +1,100 @@
 package com.example.demo.entities;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class Bus {
 
     private int number;
-    private final List<Coordinate> historyRoute = new ArrayList<>();
+
+    private final List<double[]> historyRoute = new ArrayList<>();
 
     private double lat;
     private double lng;
 
-    private BusRoute route;
-    private int currentPointIndex = 0;
+    private RouteResponse route;
 
-    public Bus(int number, BusRoute route) {
+    private List<double[]> path = new ArrayList<>();
+
+    private int currentIndex = 0;
+
+    public Bus(int number, RouteResponse route) {
         this.number = number;
         this.route = route;
 
-        if (route != null && route.getRouteSize() > 0) {
-            Coordinate start = route.getWaypoints().get(0);
-            this.lat = start.getLat();
-            this.lng = start.getLng();
-            this.historyRoute.add(start);
+        if (route != null && route.routes() != null && !route.routes().isEmpty()) {
+            this.path = extractPath(route);
+
+            if (!path.isEmpty()) {
+                double[] start = path.get(0);
+                this.lat = start[0];
+                this.lng = start[1];
+                this.historyRoute.add(start);
+            }
         }
     }
 
+    private List<double[]> extractPath(RouteResponse response) {
+        List<double[]> result = new ArrayList<>();
+
+        for (Route r : response.routes()) {
+            if (r.legs() == null) continue;
+
+            for (RouteLeg leg : r.legs()) {
+                if (leg.steps() == null) continue;
+
+                for (RouteStep step : leg.steps()) {
+                    if (step.geometry() == null || step.geometry().coordinates() == null) continue;
+
+                    for (List<Double> c : step.geometry().coordinates()) {
+                        if (c.size() >= 2) {
+                            result.add(new double[]{c.get(1), c.get(0)}); // [lat, lng]
+                        }
+                    }
+                }
+            }
+        }
+
+        // fallback: route.geometry якщо steps порожні
+        if (result.isEmpty()) {
+            for (Route r : response.routes()) {
+                if (r.geometry() == null || r.geometry().coordinates() == null) continue;
+
+                for (List<Double> c : r.geometry().coordinates()) {
+                    if (c.size() >= 2) {
+                        result.add(new double[]{c.get(1), c.get(0)}); // [lat, lng]
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
     public void moveVehicle() {
-        if (route == null || route.getRouteSize() == 0) return;
+        if (path.isEmpty()) return;
 
-        currentPointIndex++;
+        currentIndex++;
 
-        if (currentPointIndex >= route.getRouteSize()) {
-            currentPointIndex = 0;
+        if (currentIndex >= path.size()) {
+            currentIndex = 0;
         }
 
-        Coordinate nextPoint = route.getWaypoints().get(currentPointIndex);
-        this.lat = nextPoint.getLat();
-        this.lng = nextPoint.getLng();
+        double[] next = path.get(currentIndex);
+        this.lat = next[0];
+        this.lng = next[1];
 
-        if (this.historyRoute.size() >= 10) {
-            this.historyRoute.remove(0);
+        if (historyRoute.size() >= 10) {
+            historyRoute.remove(0);
         }
-        this.historyRoute.add(nextPoint);
+
+        historyRoute.add(next);
     }
 }
