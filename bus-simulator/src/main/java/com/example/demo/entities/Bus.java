@@ -24,6 +24,8 @@ public class Bus {
     private List<double[]> path = new ArrayList<>();
 
     private int currentIndex = 0;
+    private double progress;
+    private double distanceToNextStop;
 
     public Bus(int number, RouteResponse route) {
         this.number = number;

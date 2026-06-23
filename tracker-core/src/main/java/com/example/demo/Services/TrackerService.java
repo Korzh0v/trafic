@@ -18,4 +18,9 @@ public class TrackerService {
         BusEvent bus = objectMapper.readValue(message, BusEvent.class);
         System.out.println(bus);
     }
+
+    @KafkaListener(topics = "transport.gps.raw", groupId = "tracker-group")
+    public void saveRouteToDB() {
+
+    }
 }

@@ -1,5 +1,6 @@
 package com.example.demo.Service;
 
+import com.example.demo.DTO.BusDTO;
 import com.example.demo.entities.Bus;
 import com.example.demo.entities.RouteResponse;
 import com.example.demo.entities.Waypoint;
@@ -19,7 +20,7 @@ public class BusService {
     private static final double EARTH_RADIUS = 6371000.0;
 
     @Autowired
-    private KafkaTemplate<String, Bus> template;
+    private KafkaTemplate<String, BusDTO> template;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -38,10 +39,14 @@ public class BusService {
 
         bus.moveVehicle();
 
-        int currentIndex = 0;
+        int waypointIndex = findCurrentWaypointIndex(bus, route);
 
-        Waypoint from = route.waypoints().get(currentIndex);
-        Waypoint to = route.waypoints().get(currentIndex + 1);
+        if (waypointIndex >= route.waypoints().size() - 1) {
+            waypointIndex = route.waypoints().size() - 2;
+        }
+
+        Waypoint from = route.waypoints().get(waypointIndex);
+        Waypoint to = route.waypoints().get(waypointIndex + 1);
 
         double progress = progress(
                 from,
@@ -56,18 +61,43 @@ public class BusService {
                 bus.getLng()
         );
 
+        BusDTO telemetry = new BusDTO(
+                bus.getNumber(),
+                bus.getLat(),
+                bus.getLng(),
+                progress,
+                distanceToNextStop
+        );
 
+        bus.setProgress(progress);
+        bus.setDistanceToNextStop(distanceToNextStop);
 
+        System.out.println("Bus " + bus.getNumber() + " | Waypoint Index: " + waypointIndex);
         System.out.println("Progress = " + progress);
         System.out.println("Distance to next stop = " + distanceToNextStop + " m");
 
-        ProducerRecord<String, Bus> record = new ProducerRecord<>(
-                "bus-telemetry",
+        ProducerRecord<String, BusDTO> record = new ProducerRecord<>(
+                "transport.gps.raw",
                 String.valueOf(bus.getNumber()),
-                bus
+                telemetry
         );
 
         template.send(record);
+    }
+
+    private int findCurrentWaypointIndex(Bus bus, RouteResponse route) {
+        int closestIndex = 0;
+        double minDistance = Double.MAX_VALUE;
+
+        for (int i = 0; i < route.waypoints().size(); i++) {
+            Waypoint wp = route.waypoints().get(i);
+            double dist = haversine(bus.getLat(), bus.getLng(), wp.location().get(1), wp.location().get(0));
+            if (dist < minDistance) {
+                minDistance = dist;
+                closestIndex = i;
+            }
+        }
+        return closestIndex;
     }
 
     public RouteResponse getRoute() {
@@ -85,9 +115,6 @@ public class BusService {
         return response.getBody();
     }
 
-    /**
-     * Відстань між двома координатами.
-     */
     private double haversine(
             double lat1,
             double lon1,
