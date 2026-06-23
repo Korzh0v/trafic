@@ -14,3 +14,15 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+
+  redis:
+    image: redis:8
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

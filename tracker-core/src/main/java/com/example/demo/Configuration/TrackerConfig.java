@@ -1,10 +1,13 @@
 package com.example.demo.Configuration;
 
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -62,9 +65,23 @@ public class TrackerConfig {
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "tracker-group");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, "true");
 
         return props;
+    }
+
+    @Bean
+    public RedisTemplate<String, String> redisTemplate (RedisConnectionFactory factory) {
+        RedisTemplate<String, String> template = new RedisTemplate<>();
+
+        template.setConnectionFactory(factory);
+
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(
+                new GenericJackson2JsonRedisSerializer());
+
+        return template;
+
     }
 }

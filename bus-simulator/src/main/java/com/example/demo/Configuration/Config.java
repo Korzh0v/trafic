@@ -23,7 +23,7 @@ public class Config {
 
     @Bean
     public NewTopic topic1() {
-        return TopicBuilder.name("bus-telemetry")
+        return TopicBuilder.name("transport.gps.raw")
                 .partitions(1)
                 .replicas(1)
                 .compact()
