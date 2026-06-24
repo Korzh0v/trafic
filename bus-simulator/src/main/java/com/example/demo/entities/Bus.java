@@ -4,8 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Getter
 @Setter
@@ -15,9 +14,14 @@ public class Bus {
     private int number;
 
     private final List<double[]> historyRoute = new ArrayList<>();
+    private Set<Integer> stopIndices = new HashSet<>();
+
+    private int waitTicks = 0;
 
     private double lat;
     private double lng;
+
+    private int passengers;
 
     private RouteResponse route;
 
@@ -26,11 +30,14 @@ public class Bus {
     private int currentIndex = 0;
     private double progress;
     private double distanceToNextStop;
+    private Random rand = new Random();
+
+    private static final int STOP_DURATION_TICKS = 3;
 
     public Bus(int number, RouteResponse route) {
         this.number = number;
         this.route = route;
-
+        this.passengers = 0;
         if (route != null && route.routes() != null && !route.routes().isEmpty()) {
             this.path = extractPath(route);
 
@@ -45,6 +52,8 @@ public class Bus {
 
     private List<double[]> extractPath(RouteResponse response) {
         List<double[]> result = new ArrayList<>();
+        stopIndices.clear();
+
 
         for (Route r : response.routes()) {
             if (r.legs() == null) continue;
@@ -59,6 +68,10 @@ public class Bus {
                         if (c.size() >= 2) {
                             result.add(new double[]{c.get(1), c.get(0)}); // [lat, lng]
                         }
+                    }
+
+                    if (!result.isEmpty()) {
+                        stopIndices.add(result.size() - 1);
                     }
                 }
             }
@@ -83,10 +96,16 @@ public class Bus {
     public void moveVehicle() {
         if (path.isEmpty()) return;
 
+        if (waitTicks > 0) {
+            waitTicks--;
+            return;
+        }
+
         currentIndex++;
 
         if (currentIndex >= path.size()) {
             currentIndex = 0;
+            passengers = 0;
         }
 
         double[] next = path.get(currentIndex);
@@ -98,5 +117,15 @@ public class Bus {
         }
 
         historyRoute.add(next);
+
+        if (stopIndices.contains(currentIndex)) {
+            waitTicks = STOP_DURATION_TICKS;
+            passengers += rand.nextInt(0,3);
+        }
+
+    }
+
+    public boolean isAtStop() {
+        return waitTicks > 0;
     }
 }

@@ -13,6 +13,6 @@ public class BusDTO {
     private double lng;
     private double progress;
     private double distanceToNextStop;
-
+    private int passengers;
 
 }

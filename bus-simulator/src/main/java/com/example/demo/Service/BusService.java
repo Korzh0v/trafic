@@ -66,7 +66,8 @@ public class BusService {
                 bus.getLat(),
                 bus.getLng(),
                 progress,
-                distanceToNextStop
+                distanceToNextStop,
+                bus.getPassengers()
         );
 
         bus.setProgress(progress);
@@ -75,7 +76,7 @@ public class BusService {
         System.out.println("Bus " + bus.getNumber() + " | Waypoint Index: " + waypointIndex);
         System.out.println("Progress = " + progress);
         System.out.println("Distance to next stop = " + distanceToNextStop + " m");
-
+        System.out.println("Count of passengers " + bus.getPassengers());
         ProducerRecord<String, BusDTO> record = new ProducerRecord<>(
                 "transport.gps.raw",
                 String.valueOf(bus.getNumber()),
