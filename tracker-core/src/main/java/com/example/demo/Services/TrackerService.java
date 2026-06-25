@@ -14,24 +14,44 @@ public class TrackerService {
     private final RedisTemplate<String, String> redisTemplate;
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record BusEvent(int busNumber,
-                           double lat,
-                           double lng,
-                           double progress,
-                           double distanceToNextStop,
-                           int passengers) {
-    }
+    public record BusEvent(
+        int busNumber,
+        double lat,
+        double lng,
+        double progress,
+        double distanceToNextStop,
+        int passengers
+    ) {}
 
-    TrackerService (RedisTemplate<String, String> redisTemplate) {
+    TrackerService(RedisTemplate<String, String> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 
     @KafkaListener(topics = "transport.gps.raw", groupId = "tracker-group")
     public void saveRouteToDB(String message) throws Exception {
         BusEvent bus = objectMapper.readValue(message, BusEvent.class);
-        redisTemplate.opsForValue().set("bus " + bus.busNumber, "lat " + bus.lat + " lng " + bus.lng + " passengers " + bus.passengers, Expiration.seconds(10));
-        System.out.println("REDIS ID" + bus.busNumber + " lat " + bus.lat + " lng " + bus.lng + " passengers " + bus.passengers);
+        redisTemplate
+            .opsForValue()
+            .set(
+                "bus " + bus.busNumber,
+                "lat " +
+                    bus.lat +
+                    " lng " +
+                    bus.lng +
+                    " passengers " +
+                    bus.passengers,
+                Expiration.seconds(10)
+            );
+        System.out.println(
+            "REDIS ID" +
+                bus.busNumber +
+                " lat " +
+                bus.lat +
+                " lng " +
+                bus.lng +
+                " passengers " +
+                bus.passengers
+        );
         System.out.println(bus);
-
     }
 }
