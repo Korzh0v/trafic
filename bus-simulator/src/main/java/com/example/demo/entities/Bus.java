@@ -104,21 +104,21 @@ public class Bus {
     }
 
     public BusEventDTO moveVehicle() {
-        if (path.isEmpty()) return;
+        if (path.isEmpty()) return null;
 
         if (accidentTicks > 0) {
             accidentTicks--;
-            return;
+            return null;
         }
 
         if (trafficTicks > 0) {
             trafficTicks--;
-            return;
+            return null;
         }
 
         if (waitTicks > 0) {
             waitTicks--;
-            return;
+            return null;
         }
 
         if (rand.nextDouble() < TRAFFIC_CHANCE) {
@@ -166,7 +166,7 @@ public class Bus {
             waitTicks = STOP_DURATION_TICKS;
             passengers += rand.nextInt(0, 3);
         }
-        return;
+        return null;
     }
 
     public boolean isAtStop() {
