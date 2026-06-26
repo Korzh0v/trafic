@@ -29,33 +29,6 @@ public class Config {
     }
 
     @Bean
-    public NewTopic topic1() {
-        return TopicBuilder.name("transport.gps.raw")
-            .partitions(1)
-            .replicas(1)
-            .compact()
-            .build();
-    }
-
-    @Bean
-    public NewTopic topic3() {
-        return TopicBuilder.name("transport.stats")
-            .partitions(3)
-            .replicas(1)
-            .compact()
-            .build();
-    }
-
-    @Bean
-    public NewTopic topic4() {
-        return TopicBuilder.name("transport.stop.events")
-            .partitions(1)
-            .replicas(1)
-            .compact()
-            .build();
-    }
-
-    @Bean
     public RestTemplate template() {
         return new RestTemplate();
     }

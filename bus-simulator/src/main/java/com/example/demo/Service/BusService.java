@@ -1,5 +1,11 @@
 package com.example.demo.Service;
 
+import com.example.demo.DTO.BusDTO;
+import com.example.demo.DTO.BusEventDTO;
+import com.example.demo.entities.Bus;
+import com.example.demo.entities.RouteResponse;
+import com.example.demo.entities.Waypoint;
+import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
@@ -9,17 +15,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import com.example.demo.DTO.BusDTO;
-import com.example.demo.DTO.BusEventDTO;
-import com.example.demo.entities.Bus;
-import com.example.demo.entities.RouteResponse;
-import com.example.demo.entities.Waypoint;
-
-import jakarta.annotation.PostConstruct;
-
 @Service
-public class BusService
-{
+public class BusService {
 
     private static final double EARTH_RADIUS = 6371000.0;
 
@@ -35,31 +32,60 @@ public class BusService
     private Bus bus;
 
     @PostConstruct
-    public void init()
-    {
+    public void init() {
         bus = new Bus(1, getRoute());
     }
 
     @Scheduled(fixedRate = 500)
-    public void sendMessage()
-    {
+    public void sendMessage() {
         RouteResponse route = bus.getRoute();
 
         BusEventDTO event = bus.moveVehicle();
 
-        if (event != null)
-        {
-            System.out.println("EVENT DETECTED: " + event.eventType()
-                    + " for bus " + event.busNumber());
-            ProducerRecord<String, BusEventDTO> eventRecord = new ProducerRecord<String, BusEventDTO>(
-                    "transport.alerts", String.valueOf(bus.getNumber()), event);
+        if (event != null) {
+            if (
+                event.eventType().equals("ARRIVED") ||
+                event.eventType().equals("DEPARTED")
+            ) {
+                ProducerRecord<String, BusEventDTO> eventRecord =
+                    new ProducerRecord<String, BusEventDTO>(
+                        "transport.stop.events",
+                        String.valueOf(bus.getNumber()),
+                        event
+                    );
+                evenTemplate.send(eventRecord);
+            }
+
+            if (
+                event.eventType().equals("AT_STOP") ||
+                event.eventType().equals("MOVING")
+            ) {
+                ProducerRecord<String, BusEventDTO> eventRecord =
+                    new ProducerRecord<String, BusEventDTO>(
+                        "transport.gps.raw",
+                        String.valueOf(bus.getNumber()),
+                        event
+                    );
+                evenTemplate.send(eventRecord);
+            }
+            System.out.println(
+                "EVENT DETECTED: " +
+                    event.eventType() +
+                    " for bus " +
+                    event.busNumber()
+            );
+            ProducerRecord<String, BusEventDTO> eventRecord =
+                new ProducerRecord<String, BusEventDTO>(
+                    "transport.alerts",
+                    String.valueOf(bus.getNumber()),
+                    event
+                );
             evenTemplate.send(eventRecord);
         }
 
         int waypointIndex = findCurrentWaypointIndex(bus, route);
 
-        if (waypointIndex >= route.waypoints().size() - 1)
-        {
+        if (waypointIndex >= route.waypoints().size() - 1) {
             waypointIndex = route.waypoints().size() - 2;
         }
 
@@ -68,42 +94,55 @@ public class BusService
 
         double progress = progress(from, to, bus.getLat(), bus.getLng());
 
-        double distanceToNextStop = distanceToNextWaypoint(to, bus.getLat(),
-                bus.getLng());
+        double distanceToNextStop = distanceToNextWaypoint(
+            to,
+            bus.getLat(),
+            bus.getLng()
+        );
 
-        BusDTO telemetry = new BusDTO(bus.getNumber(), bus.getLat(),
-                bus.getLng(), progress, distanceToNextStop,
-                bus.getPassengers());
+        BusDTO telemetry = new BusDTO(
+            bus.getNumber(),
+            bus.getLat(),
+            bus.getLng(),
+            progress,
+            distanceToNextStop,
+            bus.getPassengers()
+        );
 
         bus.setProgress(progress);
         bus.setDistanceToNextStop(distanceToNextStop);
 
-        System.out.println("Bus " + bus.getNumber() + " | Waypoint Index: "
-                + waypointIndex);
+        System.out.println(
+            "Bus " + bus.getNumber() + " | Waypoint Index: " + waypointIndex
+        );
         System.out.println("Progress = " + progress);
         System.out.println(
-                "Distance to next stop = " + distanceToNextStop + " m");
+            "Distance to next stop = " + distanceToNextStop + " m"
+        );
         System.out.println("Count of passengers " + bus.getPassengers());
 
         ProducerRecord<String, BusDTO> record = new ProducerRecord<>(
-                "transport.gps.raw", String.valueOf(bus.getNumber()),
-                telemetry);
+            "transport.gps.raw",
+            String.valueOf(bus.getNumber()),
+            telemetry
+        );
 
         template.send(record);
     }
 
-    private int findCurrentWaypointIndex(Bus bus, RouteResponse route)
-    {
+    private int findCurrentWaypointIndex(Bus bus, RouteResponse route) {
         int closestIndex = 0;
         double minDistance = Double.MAX_VALUE;
 
-        for (int i = 0; i < route.waypoints().size(); i++)
-        {
+        for (int i = 0; i < route.waypoints().size(); i++) {
             Waypoint wp = route.waypoints().get(i);
-            double dist = haversine(bus.getLat(), bus.getLng(),
-                    wp.location().get(1), wp.location().get(0));
-            if (dist < minDistance)
-            {
+            double dist = haversine(
+                bus.getLat(),
+                bus.getLng(),
+                wp.location().get(1),
+                wp.location().get(0)
+            );
+            if (dist < minDistance) {
                 minDistance = dist;
                 closestIndex = i;
             }
@@ -111,26 +150,34 @@ public class BusService
         return closestIndex;
     }
 
-    public RouteResponse getRoute()
-    {
+    public RouteResponse getRoute() {
         ResponseEntity<RouteResponse> response = restTemplate.exchange(
-                "https://router.project-osrm.org/route/v1/driving/"
-                        + "30.467663,50.450837;30.524998,50.450181"
-                        + "?steps=true&geometries=geojson",
-                HttpMethod.GET, null, RouteResponse.class);
+            "https://router.project-osrm.org/route/v1/driving/" +
+                "30.467663,50.450837;30.524998,50.450181" +
+                "?steps=true&geometries=geojson",
+            HttpMethod.GET,
+            null,
+            RouteResponse.class
+        );
 
         return response.getBody();
     }
 
-    private double haversine(double lat1, double lon1, double lat2, double lon2)
-    {
+    private double haversine(
+        double lat1,
+        double lon1,
+        double lat2,
+        double lon2
+    ) {
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
 
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1))
-                        * Math.cos(Math.toRadians(lat2)) * Math.sin(dLon / 2)
-                        * Math.sin(dLon / 2);
+        double a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(lat1)) *
+                Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) *
+                Math.sin(dLon / 2);
 
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
@@ -140,32 +187,43 @@ public class BusService
     /**
      * Довжина відрізка між waypoint.
      */
-    private double segmentLength(Waypoint from, Waypoint to)
-    {
-        return haversine(from.location().get(1), from.location().get(0),
-                to.location().get(1), to.location().get(0));
+    private double segmentLength(Waypoint from, Waypoint to) {
+        return haversine(
+            from.location().get(1),
+            from.location().get(0),
+            to.location().get(1),
+            to.location().get(0)
+        );
     }
 
     /**
      * Скільки вже проїхав автобус на поточному відрізку.
      */
-    private double travelledDistance(Waypoint from, double busLat,
-            double busLng)
-    {
-        return haversine(from.location().get(1), from.location().get(0), busLat,
-                busLng);
+    private double travelledDistance(
+        Waypoint from,
+        double busLat,
+        double busLng
+    ) {
+        return haversine(
+            from.location().get(1),
+            from.location().get(0),
+            busLat,
+            busLng
+        );
     }
 
     /**
      * Прогрес від 0 до 1.
      */
-    private double progress(Waypoint from, Waypoint to, double busLat,
-            double busLng)
-    {
+    private double progress(
+        Waypoint from,
+        Waypoint to,
+        double busLat,
+        double busLng
+    ) {
         double segmentLength = segmentLength(from, to);
 
-        if (segmentLength == 0)
-        {
+        if (segmentLength == 0) {
             return 1.0;
         }
 
@@ -179,19 +237,28 @@ public class BusService
     /**
      * Відстань до наступного waypoint.
      */
-    private double distanceToNextWaypoint(Waypoint nextWaypoint, double busLat,
-            double busLng)
-    {
-        return haversine(busLat, busLng, nextWaypoint.location().get(1),
-                nextWaypoint.location().get(0));
+    private double distanceToNextWaypoint(
+        Waypoint nextWaypoint,
+        double busLat,
+        double busLng
+    ) {
+        return haversine(
+            busLat,
+            busLng,
+            nextWaypoint.location().get(1),
+            nextWaypoint.location().get(0)
+        );
     }
 
     /**
      * Відстань до кінця поточного сегмента.
      */
-    private double distanceToSegmentEnd(Waypoint from, Waypoint to,
-            double busLat, double busLng)
-    {
+    private double distanceToSegmentEnd(
+        Waypoint from,
+        Waypoint to,
+        double busLat,
+        double busLng
+    ) {
         double segmentLength = segmentLength(from, to);
 
         double progress = progress(from, to, busLat, busLng);
@@ -202,11 +269,14 @@ public class BusService
     /**
      * Відстань до будь-якого waypoint попереду.
      */
-    private double distanceToWaypoint(RouteResponse route, int currentIndex,
-            int targetIndex, double busLat, double busLng)
-    {
-        if (targetIndex <= currentIndex)
-        {
+    private double distanceToWaypoint(
+        RouteResponse route,
+        int currentIndex,
+        int targetIndex,
+        double busLat,
+        double busLng
+    ) {
+        if (targetIndex <= currentIndex) {
             return 0;
         }
 
@@ -214,8 +284,7 @@ public class BusService
 
         double total = distanceToNextWaypoint(nextWaypoint, busLat, busLng);
 
-        for (int i = currentIndex + 1; i < targetIndex; i++)
-        {
+        for (int i = currentIndex + 1; i < targetIndex; i++) {
             Waypoint from = route.waypoints().get(i);
             Waypoint to = route.waypoints().get(i + 1);
 

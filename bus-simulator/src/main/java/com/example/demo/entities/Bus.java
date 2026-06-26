@@ -38,6 +38,14 @@ public class Bus {
     private static final double TRAFFIC_CHANCE = 0.02;
     private static final int STOP_DURATION_TICKS = 3;
 
+    private int totalStops = 0;
+    private int totalTrafficEvents = 0;
+    private int totalAccidents = 0;
+    private long totalDelayTicks = 0;
+    private int maxPassengers = 0;
+
+    private boolean wasAtStop = false;
+
     public Bus(int number, RouteResponse route) {
         this.number = number;
         this.route = route;
@@ -106,41 +114,71 @@ public class Bus {
     public BusEventDTO moveVehicle() {
         if (path.isEmpty()) return null;
 
-        if (accidentTicks > 0) {
-            accidentTicks--;
-            return null;
+        if (!isAtStop()) {
+            if (accidentTicks > 0) {
+                accidentTicks--;
+                return new BusEventDTO(
+                    // ← було null
+                    this.number,
+                    "ACCIDENT",
+                    this.lat,
+                    this.lng,
+                    accidentTicks,
+                    this.passengers,
+                    System.currentTimeMillis()
+                );
+            }
+            if (trafficTicks > 0) {
+                trafficTicks--;
+                return new BusEventDTO(
+                    // ← було null
+                    this.number,
+                    "TRAFFIC",
+                    this.lat,
+                    this.lng,
+                    trafficTicks,
+                    this.passengers,
+                    System.currentTimeMillis()
+                );
+            }
+            if (rand.nextDouble() < TRAFFIC_CHANCE) {
+                trafficTicks = rand.nextInt(3, 10);
+                totalTrafficEvents++;
+                totalDelayTicks += trafficTicks;
+                return new BusEventDTO(
+                    this.number,
+                    "TRAFFIC",
+                    this.lat,
+                    this.lng,
+                    trafficTicks,
+                    this.passengers,
+                    System.currentTimeMillis()
+                );
+            }
+            if (rand.nextDouble() < ACCIDENT_CHANCE) {
+                accidentTicks = rand.nextInt(20, 50);
+                totalAccidents++;
+                totalDelayTicks += accidentTicks;
+                return new BusEventDTO(
+                    this.number,
+                    "ACCIDENT",
+                    this.lat,
+                    this.lng,
+                    accidentTicks,
+                    this.passengers,
+                    System.currentTimeMillis()
+                );
+            }
         }
-
-        if (trafficTicks > 0) {
-            trafficTicks--;
-            return null;
-        }
-
         if (waitTicks > 0) {
             waitTicks--;
-            return null;
-        }
-
-        if (rand.nextDouble() < TRAFFIC_CHANCE) {
-            trafficTicks = rand.nextInt(3, 10);
             return new BusEventDTO(
                 this.number,
-                "TRAFFIC",
+                "AT_STOP",
                 this.lat,
                 this.lng,
-                trafficTicks,
-                System.currentTimeMillis()
-            );
-        }
-
-        if (rand.nextDouble() < ACCIDENT_CHANCE) {
-            accidentTicks = rand.nextInt(20, 50);
-            return new BusEventDTO(
-                this.number,
-                "ACCIDENT",
-                this.lat,
-                this.lng,
-                accidentTicks,
+                waitTicks,
+                this.passengers,
                 System.currentTimeMillis()
             );
         }
@@ -164,9 +202,53 @@ public class Bus {
 
         if (stopIndices.contains(currentIndex)) {
             waitTicks = STOP_DURATION_TICKS;
-            passengers += rand.nextInt(0, 3);
+            totalStops++;
+            if (passengers > maxPassengers) maxPassengers = passengers;
+            if (passengers > 0) {
+                passengers -= rand.nextInt(0, 3);
+                if (passengers < 0) {
+                    passengers = 0;
+                }
+            }
+            passengers += rand.nextInt(0, 5);
         }
-        return null;
+
+        boolean isAtStopNow = waitTicks > 0;
+
+        if (!wasAtStop && isAtStopNow) {
+            wasAtStop = true;
+            return new BusEventDTO(
+                this.number,
+                "ARRIVED",
+                this.lat,
+                this.lng,
+                this.passengers,
+                waitTicks,
+                System.currentTimeMillis()
+            );
+        }
+
+        if (wasAtStop && !isAtStopNow) {
+            wasAtStop = false;
+            return new BusEventDTO(
+                this.number,
+                "DEPARTED",
+                this.lat,
+                this.lng,
+                this.passengers,
+                0,
+                System.currentTimeMillis()
+            );
+        }
+        return new BusEventDTO(
+            this.number,
+            "MOVING",
+            this.lat,
+            this.lng,
+            0,
+            this.passengers,
+            System.currentTimeMillis()
+        );
     }
 
     public boolean isAtStop() {

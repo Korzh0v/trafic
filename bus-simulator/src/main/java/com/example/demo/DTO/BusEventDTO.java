@@ -5,6 +5,7 @@ public record BusEventDTO(
     String eventType, // "TRAFFIC" або "ACCIDENT"
     double lat,
     double lng,
+    int passengers,
     int durationTicks,
     long timestamp
 ) {}
