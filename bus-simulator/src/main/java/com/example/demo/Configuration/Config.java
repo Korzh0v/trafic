@@ -42,7 +42,6 @@ public class Config {
         return TopicBuilder.name("transport.stats")
             .partitions(3)
             .replicas(1)
-            .compact()
             .build();
     }
 
@@ -51,8 +50,15 @@ public class Config {
         return TopicBuilder.name("transport.stop.events")
             .partitions(1)
             .replicas(1)
-            .compact()
             .build();
+    }
+
+    @Bean
+    public NewTopic topic5() {
+        return TopicBuilder.name("transport.gps.positions")
+                .partitions(3)
+                .replicas(1)
+                .build();
     }
 
     @Bean

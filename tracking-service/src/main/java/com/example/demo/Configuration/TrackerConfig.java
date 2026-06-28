@@ -34,14 +34,6 @@ public class TrackerConfig {
         return new KafkaAdmin(configs);
     }
 
-    @Bean
-    public NewTopic topic1() {
-        return TopicBuilder.name("transport.gps.raw")
-                .partitions(2)
-                .replicas(1)
-                .compact()
-                .build();
-    }
 
     @Bean
     KafkaListenerContainerFactory<ConcurrentMessageListenerContainer<String, Object>>

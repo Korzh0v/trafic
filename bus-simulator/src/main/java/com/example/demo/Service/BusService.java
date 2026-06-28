@@ -38,53 +38,38 @@ public class BusService {
 
     @Scheduled(fixedRate = 500)
     public void sendMessage() {
-        RouteResponse route = bus.getRoute();
-
         BusEventDTO event = bus.moveVehicle();
 
         if (event != null) {
-            if (
-                    event.eventType().equals("ARRIVED") ||
-                            event.eventType().equals("DEPARTED")
-            ) {
-                ProducerRecord<String, BusEventDTO> eventRecord =
-                        new ProducerRecord<>(
+            System.out.println("EVENT: " + event.eventType()
+                    + " bus=" + event.busNumber());
+
+            switch (event.eventType()) {
+                case "MOVING", "AT_STOP" ->
+                        evenTemplate.send(new ProducerRecord<>(
+                                "transport.gps.positions",
+                                String.valueOf(bus.getNumber()),
+                                event
+                        ));
+
+                case "ARRIVED", "DEPARTED" ->
+                        evenTemplate.send(new ProducerRecord<>(
                                 "transport.stop.events",
                                 String.valueOf(bus.getNumber()),
                                 event
-                        );
-                evenTemplate.send(eventRecord);
-            }
+                        ));
 
-            if (
-                    event.eventType().equals("AT_STOP") ||
-                            event.eventType().equals("MOVING")
-            ) {
-                ProducerRecord<String, BusEventDTO> eventRecord =
-                        new ProducerRecord<>(
-                                "transport.gps.raw",
+                case "TRAFFIC", "ACCIDENT" ->
+                        evenTemplate.send(new ProducerRecord<>(
+                                "transport.alerts",
                                 String.valueOf(bus.getNumber()),
                                 event
-                        );
-                evenTemplate.send(eventRecord);
+                        ));
             }
-
-            System.out.println(
-                    "EVENT DETECTED: " +
-                            event.eventType() +
-                            " for bus " +
-                            event.busNumber()
-            );
-
-            ProducerRecord<String, BusEventDTO> eventRecord =
-                    new ProducerRecord<>(
-                            "transport.alerts",
-                            String.valueOf(bus.getNumber()),
-                            event
-                    );
-            evenTemplate.send(eventRecord);
         }
 
+        // Телеметрія — завжди, незалежно від події
+        RouteResponse route = bus.getRoute();
         int waypointIndex = findCurrentWaypointIndex(bus, route);
 
         if (waypointIndex >= route.waypoints().size() - 1) {
@@ -92,15 +77,13 @@ public class BusService {
         }
 
         Waypoint from = route.waypoints().get(waypointIndex);
-        Waypoint to = route.waypoints().get(waypointIndex + 1);
+        Waypoint to   = route.waypoints().get(waypointIndex + 1);
 
-        double progress = progress(from, to, bus.getLat(), bus.getLng());
+        double progress           = progress(from, to, bus.getLat(), bus.getLng());
+        double distanceToNextStop = distanceToNextWaypoint(to, bus.getLat(), bus.getLng());
 
-        double distanceToNextStop = distanceToNextWaypoint(
-                to,
-                bus.getLat(),
-                bus.getLng()
-        );
+        bus.setProgress(progress);
+        bus.setDistanceToNextStop(distanceToNextStop);
 
         BusDTO telemetry = new BusDTO(
                 bus.getNumber(),
@@ -111,23 +94,12 @@ public class BusService {
                 bus.getPassengers()
         );
 
-        bus.setProgress(progress);
-        bus.setDistanceToNextStop(distanceToNextStop);
-
-        System.out.println(
-                "Bus " + bus.getNumber() + " | Waypoint Index: " + waypointIndex
-        );
-        System.out.println("Progress = " + progress);
-        System.out.println("Distance to next stop = " + distanceToNextStop + " m");
-        System.out.println("Count of passengers " + bus.getPassengers());
-
-        ProducerRecord<String, BusDTO> record = new ProducerRecord<>(
+        // Тільки BusDTO — тільки в transport.gps.raw
+        template.send(new ProducerRecord<>(
                 "transport.gps.raw",
                 String.valueOf(bus.getNumber()),
                 telemetry
-        );
-
-        template.send(record);
+        ));
     }
 
     private int findCurrentWaypointIndex(Bus bus, RouteResponse route) {

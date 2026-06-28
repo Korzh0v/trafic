@@ -23,7 +23,6 @@ public class AlertsConfig {
         return TopicBuilder.name("transport.alerts")
             .partitions(3)
             .replicas(1)
-            .compact()
             .build();
     }
 
