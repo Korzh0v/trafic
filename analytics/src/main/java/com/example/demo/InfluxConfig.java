@@ -9,14 +9,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class InfluxConfig {
 
-    @Value("influx.token")
+    @Value("${influx.token}")
     private String token;
+
+    @Value("${influx.url}")
+    private String url;
 
     @Bean
     public InfluxDBClient influxDBClient() {
-        return InfluxDBClientFactory.create(
-                "http://localhost:8086",
-                token.toCharArray()
-        );
+        return InfluxDBClientFactory.create(url, token.toCharArray());
     }
 }

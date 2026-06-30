@@ -35,6 +35,8 @@ services:
       DOCKER_INFLUXDB_INIT_ORG: my-org
       DOCKER_INFLUXDB_INIT_BUCKET: sensor-data
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-token
+    volumes:
+      - influx_db:/var/lib/influxdb2 # ← додай це
 
   grafana:
     image: grafana/grafana:latest
@@ -47,3 +49,4 @@ services:
 volumes:
   redis-data:
   grafana-data:
+  influx_db:
